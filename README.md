@@ -1,7 +1,26 @@
 # Youtube Downloader
+Youtube single or multiple (playlist) song downloader with youtube-dl library with mp3 output type
+## Installation
+if you use Mac OS, you should install ffmpeg (for other operating systems, you can google)
 
-## Download
 ```
- youtube-dl -i -f mp4 --yes-playlist 'https://www.youtube.com/watch?v=InymYroypxg&list=PL0INWV-Gp-dor7Fu4ad8gcZvW7MgXI4cC&ab_channel=KEXP'
+brew install ffmpeg
+```
+
+You can build virtualenv library
+```
+virtual env
+```
+For python library
+```
+source venv/bin/activate
+```
+For Active
+```
+pip install -r requirements.txt 
+```
+## Usage
+```
+ python downloader.py --output_folder downloaded_songs --url https://www.youtube.com/watch?v=BaW_jenozKc&ab_channel=PhilippHagemeister
 ```
 

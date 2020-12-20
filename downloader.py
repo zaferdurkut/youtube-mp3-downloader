@@ -45,6 +45,8 @@ ydl_opts = {
             "preferredquality": "192",
         }
     ],
+    "quiet": False,
+    "ignoreerrors": True,
     "logger": MyLogger(),
     "progress_hooks": [my_hook],
 }
@@ -53,4 +55,7 @@ with youtube_dl.YoutubeDL(ydl_opts) as ydl:
     #     args.url,
     #     download=False,
     # )
-    ydl.download([args.url])
+    try:
+        ydl.download([args.url])
+    except youtube_dl.utils.DownloadError as exc:
+        print(exc)

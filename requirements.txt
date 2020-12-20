@@ -1,0 +1,9 @@
+python-dotenv==0.10.1
+ipdb==0.12.2
+requests==2.22.0
+ipython==7.8.0
+argparse==1.4.0
+multiprocess==0.70.9
+pytube==10.0.0
+moviepy==1.0.3
+youtube_dl==2020.12.5

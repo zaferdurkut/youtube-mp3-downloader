@@ -1,18 +1,15 @@
 import argparse
 import sys
 
-import yt_dlp
-
-from utils import create_directory, MyLogger, my_hook
-
+from core import DEFAULT_OUTPUT_FOLDER, FORMATS, download
 
 parser = argparse.ArgumentParser(description="Youtube Mp3 Downloader")
 parser.add_argument(
     "--output_folder",
     metavar="output_folder",
-    default="downloaded_songs",
+    default=DEFAULT_OUTPUT_FOLDER,
     type=str,
-    help="Output folder in project",
+    help=f"Output folder (default: {DEFAULT_OUTPUT_FOLDER})",
 )
 
 parser.add_argument(
@@ -27,46 +24,49 @@ parser.add_argument(
     help="Download only the first N songs of a playlist",
 )
 
-args = parser.parse_args()
+parser.add_argument(
+    "--format",
+    choices=list(FORMATS),
+    default="mp3",
+    help="Output format: mp3/m4a (audio) or mp4 (video)",
+)
 
-if args.url is None:
-    print("URL is required")
-    sys.exit()
+parser.add_argument(
+    "--single",
+    action="store_true",
+    help="Download only the video even if the URL also has a playlist",
+)
 
 
-DIRECTORY_NAME = args.output_folder
+def print_event(event):
+    kind = event["type"]
+    if kind == "progress" and event["percent"] is not None:
+        position = f"[{event['index']}/{event['total']}] " if event["index"] else ""
+        print(f"\r{position}{event['title']} %{event['percent']:.0f}", end="", flush=True)
+    elif kind == "converting":
+        print(f"\r{event['title']} converting ...", end="", flush=True)
+    elif kind == "done":
+        print(f"\r\033[K✓ {event['title']}")
+    elif kind == "skipped":
+        print(f"↷ {event['title']} (already downloaded)")
+    elif kind == "error":
+        print(f"\r\033[K✕ {event['message']}")
 
-create_directory(DIRECTORY_NAME)
 
-ydl_opts = {
-    "format": "bestaudio/best",
-    "download_archive": "{DIRECTORY_NAME}/downloaded_songs.txt".format(
-        DIRECTORY_NAME=DIRECTORY_NAME
-    ),
-    "outtmpl": "{DIRECTORY_NAME}/%(title)s.%(ext)s".format(
-        DIRECTORY_NAME=DIRECTORY_NAME
-    ),
-    "postprocessors": [
-        {
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }
-    ],
-    "quiet": False,
-    "ignoreerrors": True,
-    "logger": MyLogger(),
-    "progress_hooks": [my_hook],
-}
-if args.limit:
-    ydl_opts["playlistend"] = args.limit
+def main():
+    args = parser.parse_args()
+    result = download(
+        args.url, args.output_folder, args.limit, args.format, args.single, on_event=print_event
+    )
 
-with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-    # info = ydl.extract_info(
-    #     args.url,
-    #     download=False,
-    # )
-    try:
-        ydl.download([args.url])
-    except yt_dlp.utils.DownloadError as exc:
-        print(exc)
+    print(
+        f"\nDownloaded: {len(result.downloaded)}, "
+        f"already downloaded: {len(result.skipped)}, failed: {len(result.failed)}"
+    )
+    for message in result.failed:
+        print(f"  ✕ {message}")
+    return 1 if result.failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,35 +1,47 @@
 # Youtube Downloader
-Youtube single or multiple (playlist) song downloader with mp3 output type, built on [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+Download a single YouTube video or a whole playlist as mp3, m4a or mp4, from a small local web UI or the command line. Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
-`youtube_dl` is no longer maintained and can't extract videos from YouTube anymore, so this project uses `yt-dlp` (an actively maintained fork with the same API).
+- Songs get their cover art and artist / title tags embedded.
+- File names are cleaned up: `Cengiz Özkan - Değme Felek I Official Music Video © 2015 Kalan Müzik` becomes `Cengiz Özkan - Değme Felek.mp3`.
+- Already downloaded videos are skipped on the next run (tracked per format).
+- Files are saved to `~/Downloads/YouTube` by default.
 
-## Installation
-ffmpeg is required for the mp3 conversion. On Mac OS (for other operating systems, see the ffmpeg docs):
+## Requirements
+Python 3.10+ and ffmpeg. On Mac OS (for other operating systems, see the ffmpeg docs):
 
 ```
 brew install ffmpeg
 ```
 
-Create and activate a virtualenv
-```
-python3 -m venv venv
-source venv/bin/activate
-```
-Install the dependencies
-```
-pip install -r requirements.txt
-```
-YouTube changes often; if downloads start failing, update yt-dlp first:
-```
-pip install -U "yt-dlp[default]"
-```
 ## Usage
-Quote the URL so the shell doesn't interpret `&`:
+The Makefile creates the virtualenv and installs the dependencies on first use, so there's no setup step.
+
+### Web UI
 ```
-python downloader.py --output_folder downloaded_songs --url "https://www.youtube.com/playlist?list=PLAYLIST_ID"
+make ui
 ```
-To download only the first N songs of a playlist, add `--limit N`:
+Opens http://127.0.0.1:8000. Pick single video or playlist and a format, paste the link and download. The library at the bottom lists the files in the output folder: click a song to play it, or a video to watch it. The output folder can be changed from the UI and is remembered in `settings.json`.
+
+Only one download runs at a time; reloading the page or opening a second tab reconnects to the running download.
+
+### Command line
 ```
-python downloader.py --limit 10 --url "https://www.youtube.com/playlist?list=PLAYLIST_ID"
+make download URL="https://www.youtube.com/playlist?list=PLAYLIST_ID"
 ```
-Already downloaded songs are recorded in `<output_folder>/downloaded_songs.txt` and skipped on the next run.
+Options:
+
+| Option | Meaning |
+| --- | --- |
+| `FORMAT=mp3\|m4a\|mp4` | Output format (default `mp3`) |
+| `LIMIT=10` | Only the first N items of a playlist |
+| `SINGLE=1` | Only the video, even if the link also has `list=` |
+| `OUT=~/Music/YouTube` | Output folder (default `~/Downloads/YouTube`) |
+
+Or call the script directly: `python downloader.py --help`.
+
+### Other commands
+```
+make test      # run the tests
+make update    # update yt-dlp, try this first when downloads start failing
+make clean     # remove the virtualenv
+```

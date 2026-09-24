@@ -119,3 +119,6 @@ models/__pycache__/
 .vscode
 # Downloaded songs
 downloaded_songs/
+
+# Web UI settings (chosen output folder)
+settings.json

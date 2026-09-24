@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube İndirici</title>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --surface: #ffffff;
+    --border: #e4e1da;
+    --text: #1f1d1a;
+    --muted: #6f6a61;
+    --accent: #c2410c;
+    --accent-soft: #fbe9df;
+    --accent-text: #ffffff;
+    --track: #ece9e3;
+    --ok: #15803d;
+    --fail: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161513;
+      --surface: #1f1e1b;
+      --border: #34322d;
+      --text: #ece9e3;
+      --muted: #a39e94;
+      --accent: #f97316;
+      --accent-soft: #3a2415;
+      --accent-text: #1a0d05;
+      --track: #2c2a26;
+      --ok: #4ade80;
+      --fail: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 16px; }
+  h1 { font-size: 24px; margin: 0 0 24px; letter-spacing: -0.01em; }
+  h2 { font-size: 16px; margin: 0; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .options { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 16px; }
+  .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; padding: 2px; background: var(--bg); }
+  .segmented input { position: absolute; opacity: 0; pointer-events: none; }
+  .segmented label {
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .segmented input:checked + label { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+  .segmented input:focus-visible + label { outline: 2px solid var(--accent); }
+  .segmented input:disabled + label { cursor: default; opacity: 0.6; }
+  .row { display: grid; grid-template-columns: 1fr 110px auto; gap: 10px; }
+  .row.single { grid-template-columns: 1fr auto; }
+  .row.single .limit { display: none; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input[type="url"], input[type="number"], input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input:disabled { opacity: 0.6; }
+  button {
+    align-self: end;
+    padding: 10px 20px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button.secondary {
+    flex: none;
+    padding: 10px 14px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .folder { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .folder-row { display: flex; gap: 10px; }
+  .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+  .hint.error { color: var(--fail); }
+  .hint button { padding: 0; background: none; border: 0; color: var(--accent); font-size: 13px; font-weight: 500; text-decoration: underline; }
+  .message { color: var(--fail); font-size: 14px; margin: 12px 0 0; }
+  .message:empty { display: none; }
+  .now-head { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
+  .now-title { font-weight: 600; margin: 4px 0 12px; overflow-wrap: anywhere; }
+  .bar { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
+  .bar div { height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
+  .bar.indeterminate div { width: 100%; animation: pulse 1s ease-in-out infinite alternate; }
+  @keyframes pulse { from { opacity: 0.25; } to { opacity: 0.7; } }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+  li:first-child { border-top: 0; padding-top: 0; }
+  li:last-child { padding-bottom: 0; }
+  .icon { flex: none; width: 18px; font-weight: 700; text-align: center; }
+  .done .icon { color: var(--ok); }
+  .skipped, .skipped .icon { color: var(--muted); }
+  .error .icon, li.error { color: var(--fail); }
+  .summary { font-weight: 600; margin-bottom: 12px; }
+  .summary:empty { display: none; }
+  .library-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .count { color: var(--muted); font-size: 13px; }
+  .player { margin-bottom: 12px; }
+  .player video { width: 100%; border-radius: 8px; background: #000; max-height: 60vh; }
+  .player audio { width: 100%; }
+  .player-title { font-weight: 600; font-size: 14px; margin-bottom: 8px; overflow-wrap: anywhere; }
+  .files li { padding: 0; }
+  .files button {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    width: calc(100% + 16px);
+    padding: 9px 8px;
+    margin: 0 -8px;
+    background: none;
+    color: var(--text);
+    font-weight: 400;
+    text-align: left;
+    border-radius: 6px;
+  }
+  .files button:hover { background: var(--bg); }
+  .files li.playing button { background: var(--accent-soft); }
+  .files .icon { color: var(--accent); }
+  .files .name { flex: 1; overflow-wrap: anywhere; }
+  .files .size { flex: none; color: var(--muted); font-size: 13px; }
+  .empty { color: var(--muted); font-size: 14px; margin: 0; }
+  [hidden] { display: none !important; }
+  @media (max-width: 560px) {
+    .row { grid-template-columns: 1fr 1fr; }
+    .row > div:first-child { grid-column: 1 / -1; }
+    .folder-row { flex-wrap: wrap; }
+    .folder-row input { flex-basis: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>YouTube İndirici</h1>
+
+  <div class="card">
+    <form id="form">
+      <div class="options">
+        <div class="segmented" role="radiogroup" aria-label="Ne indirilecek">
+          <input type="radio" name="mode" id="mode-single" value="single">
+          <label for="mode-single">Tek video</label>
+          <input type="radio" name="mode" id="mode-playlist" value="playlist" checked>
+          <label for="mode-playlist">Playlist</label>
+        </div>
+        <div class="segmented" role="radiogroup" aria-label="Format">
+          <input type="radio" name="format" id="format-mp3" value="mp3" checked>
+          <label for="format-mp3">MP3</label>
+          <input type="radio" name="format" id="format-m4a" value="m4a">
+          <label for="format-m4a">M4A</label>
+          <input type="radio" name="format" id="format-mp4" value="mp4">
+          <label for="format-mp4">MP4 video</label>
+        </div>
+      </div>
+      <div class="row" id="row">
+        <div>
+          <label for="url">Link</label>
+          <input id="url" type="url" required placeholder="https://www.youtube.com/playlist?list=…">
+        </div>
+        <div class="limit">
+          <label for="limit">İlk kaç tane</label>
+          <input id="limit" type="number" min="1" placeholder="Tümü">
+        </div>
+        <button id="start" type="submit">İndir</button>
+      </div>
+    </form>
+    <p class="message" id="message"></p>
+
+    <div class="folder">
+      <label for="folder">Kayıt klasörü</label>
+      <div class="folder-row">
+        <input id="folder" type="text" spellcheck="false">
+        <button class="secondary" id="save-folder" type="button" hidden>Kaydet</button>
+        <button class="secondary" id="open-folder" type="button">Klasörü aç</button>
+      </div>
+      <p class="hint" id="folder-hint">Klasör yoksa oluşturulur.</p>
+    </div>
+  </div>
+
+  <div class="card" id="now" hidden>
+    <div class="now-head"><span id="now-status">Hazırlanıyor…</span><span id="now-position"></span></div>
+    <div class="now-title" id="now-title"></div>
+    <div class="bar" id="bar"><div></div></div>
+  </div>
+
+  <div class="card" id="results" hidden>
+    <div class="summary" id="summary"></div>
+    <ul id="list"></ul>
+  </div>
+
+  <div class="card">
+    <div class="library-head">
+      <h2>Kütüphane</h2>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="player" id="player" hidden>
+      <div class="player-title" id="player-title"></div>
+      <div id="player-media"></div>
+    </div>
+    <ul class="files" id="files"></ul>
+    <p class="empty" id="empty" hidden>Bu klasörde henüz ses ya da video dosyası yok.</p>
+  </div>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const ICONS = { done: "✓", skipped: "↷", error: "✕" };
+  let config = { output_folder: "", default_folder: "" };
+  let playing = null;
+
+  const checked = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
+  const check = (name, value) => {
+    document.querySelector(`input[name="${name}"][value="${value}"]`).checked = true;
+  };
+
+  // --- Output folder ---
+
+  function showFolder(hint, isError = false) {
+    $("save-folder").hidden = $("folder").value.trim() === config.output_folder;
+    const atDefault = config.output_folder === config.default_folder;
+    $("folder-hint").className = "hint" + (isError ? " error" : "");
+    $("folder-hint").replaceChildren(hint || "Klasör yoksa oluşturulur.");
+    if (!isError && !atDefault) {
+      const reset = document.createElement("button");
+      reset.type = "button";
+      reset.textContent = "Varsayılana dön";
+      reset.addEventListener("click", () => saveFolder(config.default_folder));
+      $("folder-hint").append(" ", reset);
+    }
+  }
+
+  async function saveFolder(folder) {
+    const response = await fetch("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ output_folder: folder }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      showFolder(typeof body.detail === "string" ? body.detail : "Klasör kaydedilemedi", true);
+      return false;
+    }
+    config = body;
+    $("folder").value = config.output_folder;
+    showFolder("Kaydedildi.");
+    playing = null;
+    $("player").hidden = true;
+    $("player-media").replaceChildren();
+    loadLibrary();
+    return true;
+  }
+
+  $("folder").addEventListener("input", () => showFolder());
+  $("folder").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") saveFolder($("folder").value.trim());
+  });
+  $("save-folder").addEventListener("click", () => saveFolder($("folder").value.trim()));
+  $("open-folder").addEventListener("click", () => fetch("/api/open-folder", { method: "POST" }));
+
+  // --- Mode and format ---
+
+  function syncMode() {
+    $("row").classList.toggle("single", checked("mode") === "single");
+  }
+  document.querySelectorAll('input[name="mode"]').forEach((el) => el.addEventListener("change", syncMode));
+
+  // Guess the mode from the pasted link; the user can still switch it
+  $("url").addEventListener("input", () => {
+    const url = $("url").value;
+    if (url.includes("/playlist")) check("mode", "playlist");
+    else if (/[?&]v=|youtu\.be\/|\/shorts\//.test(url)) check("mode", "single");
+    syncMode();
+  });
+
+  // --- Library ---
+
+  function formatSize(bytes) {
+    return bytes >= 1e9 ? (bytes / 1e9).toFixed(1) + " GB" : (bytes / 1e6).toFixed(1) + " MB";
+  }
+
+  function play(file) {
+    playing = file.name;
+    const el = document.createElement(file.kind === "video" ? "video" : "audio");
+    el.controls = true;
+    el.autoplay = true;
+    el.src = "/media/" + encodeURIComponent(file.name);
+    $("player-media").replaceChildren(el);
+    $("player-title").textContent = file.name;
+    $("player").hidden = false;
+    document.querySelectorAll(".files li").forEach((li) => {
+      li.classList.toggle("playing", li.dataset.name === playing);
+    });
+  }
+
+  async function loadLibrary() {
+    const files = await fetch("/api/files").then((r) => r.json());
+    $("count").textContent = files.length ? `${files.length} dosya` : "";
+    $("empty").hidden = files.length > 0;
+    $("files").replaceChildren(...files.map((file) => {
+      const li = document.createElement("li");
+      li.dataset.name = file.name;
+      li.classList.toggle("playing", file.name === playing);
+      const button = document.createElement("button");
+      button.type = "button";
+      const icon = document.createElement("span");
+      icon.className = "icon";
+      icon.textContent = file.kind === "video" ? "▶" : "♪";
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = file.name;
+      const size = document.createElement("span");
+      size.className = "size";
+      size.textContent = formatSize(file.size);
+      button.append(icon, name, size);
+      button.addEventListener("click", () => play(file));
+      li.append(button);
+      return li;
+    }));
+  }
+
+  // --- Download progress ---
+
+  function addRow(kind, text) {
+    const li = document.createElement("li");
+    li.className = kind;
+    const icon = document.createElement("span");
+    icon.className = "icon";
+    icon.textContent = ICONS[kind];
+    const label = document.createElement("span");
+    label.textContent = text;
+    li.append(icon, label);
+    $("list").append(li);
+    $("results").hidden = false;
+  }
+
+  function setNow(status, title, position, percent) {
+    $("now").hidden = false;
+    $("now-status").textContent = status;
+    if (title) $("now-title").textContent = title;
+    $("now-position").textContent = position || "";
+    $("bar").classList.toggle("indeterminate", percent == null);
+    $("bar").firstElementChild.style.width = (percent ?? 0) + "%";
+  }
+
+  function setBusy(busy) {
+    $("start").disabled = busy;
+    $("start").textContent = busy ? "İndiriliyor…" : "İndir";
+    document.querySelectorAll("#form input, #folder, #save-folder").forEach((el) => { el.disabled = busy; });
+  }
+
+  function handle(event) {
+    switch (event.type) {
+      case "progress": {
+        const position = event.index ? `${event.index} / ${event.total ?? "?"}` : "";
+        const status = event.percent == null ? "İndiriliyor" : `İndiriliyor %${Math.round(event.percent)}`;
+        setNow(status, event.title, position, event.percent);
+        break;
+      }
+      case "converting":
+        setNow("Dönüştürülüyor", event.title, $("now-position").textContent, null);
+        break;
+      case "done":
+        addRow("done", event.title);
+        loadLibrary();
+        break;
+      case "skipped":
+        addRow("skipped", event.title + " — zaten indirilmiş");
+        break;
+      case "error":
+        addRow("error", event.message);
+        break;
+      case "finished": {
+        $("now").hidden = true;
+        const failed = event.failed.length;
+        $("summary").textContent =
+          `Bitti: ${event.downloaded} indirildi` +
+          (event.skipped ? `, ${event.skipped} zaten vardı` : "") +
+          (failed ? `, ${failed} başarısız` : "");
+        $("results").hidden = false;
+        setBusy(false);
+        loadLibrary();
+        break;
+      }
+    }
+  }
+
+  function listen(id) {
+    setBusy(true);
+    $("list").replaceChildren();
+    $("summary").textContent = "";
+    $("results").hidden = true;
+    setNow("Hazırlanıyor…", "Link okunuyor", "", null);
+
+    const source = new EventSource(`/api/downloads/${id}/events`);
+    source.onmessage = (msg) => {
+      const event = JSON.parse(msg.data);
+      handle(event);
+      if (event.type === "finished") source.close();
+    };
+  }
+
+  function showCurrent(current) {
+    $("url").value = current.url;
+    $("limit").value = current.limit ?? "";
+    check("mode", current.single ? "single" : "playlist");
+    check("format", current.format);
+    syncMode();
+    listen(current.id);
+  }
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("message").textContent = "";
+
+    // An edited but unsaved folder should apply to this download
+    const folder = $("folder").value.trim();
+    if (folder !== config.output_folder && !(await saveFolder(folder))) return;
+
+    const single = checked("mode") === "single";
+    const request = {
+      url: $("url").value.trim(),
+      limit: !single && $("limit").value ? Number($("limit").value) : null,
+      format: checked("format"),
+      single,
+    };
+
+    setBusy(true);
+    const response = await fetch("/api/downloads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    }).catch(() => null);
+
+    if (!response || !response.ok) {
+      const body = response ? await response.json().catch(() => ({})) : {};
+      $("message").textContent =
+        typeof body.detail === "string" ? body.detail : "İndirme başlatılamadı. Sunucu çalışıyor mu?";
+      setBusy(false);
+      // Someone else started a download in the meantime: follow that one
+      if (response && response.status === 409) {
+        const current = await fetch("/api/downloads/current").then((r) => r.json());
+        if (current.id) showCurrent(current);
+      }
+      return;
+    }
+
+    const { id } = await response.json();
+    listen(id);
+  });
+
+  // --- Start up ---
+
+  fetch("/api/config").then((r) => r.json()).then((c) => {
+    config = c;
+    $("folder").value = c.output_folder;
+    showFolder();
+  });
+
+  // A download started earlier (before a reload, or in another tab) is still running
+  fetch("/api/downloads/current").then((r) => r.json()).then((current) => {
+    if (current.id) showCurrent(current);
+  });
+
+  syncMode();
+  loadLibrary();
+</script>
+</body>
+</html>

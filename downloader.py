@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-import youtube_dl
+import yt_dlp
 
 from utils import create_directory, MyLogger, my_hook
 
@@ -50,12 +50,12 @@ ydl_opts = {
     "logger": MyLogger(),
     "progress_hooks": [my_hook],
 }
-with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+with yt_dlp.YoutubeDL(ydl_opts) as ydl:
     # info = ydl.extract_info(
     #     args.url,
     #     download=False,
     # )
     try:
         ydl.download([args.url])
-    except youtube_dl.utils.DownloadError as exc:
+    except yt_dlp.utils.DownloadError as exc:
         print(exc)

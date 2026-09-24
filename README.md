@@ -1,36 +1,31 @@
 # Youtube Downloader
-Youtube single or multiple (playlist) song downloader with youtube-dl library with mp3 output type
-Maybe you can try with youtube-dl but for my case youtube-dl don't support mp3 output type
-#### Request
-```
-youtube-dl -i -f mp3 --yes-playlist 'https://www.youtube.com/watch?v=BaW_jenozKc&ab_channel=PhilippHagemeister'
-```
-#### Result
-```
-[youtube] hxEtaxWgUCA: Downloading webpage
-ERROR: requested format not available
-```
+Youtube single or multiple (playlist) song downloader with mp3 output type, built on [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+
+`youtube_dl` is no longer maintained and can't extract videos from YouTube anymore, so this project uses `yt-dlp` (an actively maintained fork with the same API).
+
 ## Installation
-if you use Mac OS, you should install ffmpeg (for other operating systems, you can google)
+ffmpeg is required for the mp3 conversion. On Mac OS (for other operating systems, see the ffmpeg docs):
 
 ```
 brew install ffmpeg
 ```
 
-You can build virtualenv library
+Create and activate a virtualenv
 ```
-virtual env
-```
-For python library
-```
+python3 -m venv venv
 source venv/bin/activate
 ```
-For Active
+Install the dependencies
 ```
-pip install -r requirements.txt 
+pip install -r requirements.txt
+```
+YouTube changes often; if downloads start failing, update yt-dlp first:
+```
+pip install -U "yt-dlp[default]"
 ```
 ## Usage
+Quote the URL so the shell doesn't interpret `&`:
 ```
- python downloader.py --output_folder downloaded_songs --url https://www.youtube.com/watch?v=BaW_jenozKc&ab_channel=PhilippHagemeister
+python downloader.py --output_folder downloaded_songs --url "https://www.youtube.com/playlist?list=PLAYLIST_ID"
 ```
-
+Already downloaded songs are recorded in `<output_folder>/downloaded_songs.txt` and skipped on the next run.

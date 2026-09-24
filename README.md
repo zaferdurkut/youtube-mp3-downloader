@@ -22,6 +22,8 @@ make ui
 ```
 Opens http://127.0.0.1:8000. Pick single video or playlist and a format, paste the link and download. The library at the bottom lists the files in the output folder: click a song to play it, or a video to watch it. The output folder can be changed from the UI and is remembered in `settings.json`.
 
+**Temizle** deletes what interrupted downloads leave behind (`.part` / `.ytdl` files, per-format parts like `Song.f140.m4a`, and covers or source audio next to a finished song). It only matches names yt-dlp produces, skips files changed in the last 10 minutes, and lists the files for confirmation first, so it is safe to use on `~/Downloads`.
+
 Only one download runs at a time; reloading the page or opening a second tab reconnects to the running download. **Durdur** stops it and removes the half-downloaded files of the song in progress; songs that already finished are kept.
 
 ### Command line

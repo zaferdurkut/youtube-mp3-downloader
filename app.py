@@ -15,7 +15,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from core import DEFAULT_OUTPUT_FOLDER, download
+from core import DEFAULT_OUTPUT_FOLDER, download, find_leftovers
 
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".opus", ".ogg", ".wav", ".flac"}
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".webm", ".mov"}
@@ -87,6 +87,10 @@ def index():
     return FileResponse(INDEX_HTML)
 
 
+class CleanupRequest(BaseModel):
+    names: list[str]
+
+
 class ConfigRequest(BaseModel):
     output_folder: str = Field(min_length=1)
 
@@ -134,6 +138,33 @@ def cancel_download(job_id: str):
         raise HTTPException(404, "Böyle bir indirme yok")
     job.cancel.set()
     return {"ok": True}
+
+
+@app.get("/api/cleanup")
+def cleanup_preview():
+    """Leftover files that cleanup would delete, shown to the user for confirmation."""
+    leftovers = find_leftovers(output_folder())
+    return {"files": [{"name": n, "size": size} for n, size in leftovers],
+            "total": sum(size for _, size in leftovers)}
+
+
+@app.post("/api/cleanup")
+def cleanup(request: CleanupRequest):
+    if busy.locked():
+        raise HTTPException(409, "İndirme sürerken temizlik yapılamaz")
+    folder = output_folder()
+    # Only delete what the user confirmed and what still counts as a leftover now
+    confirmed = set(request.names)
+    deleted, freed = 0, 0
+    for name, size in find_leftovers(folder):
+        if name in confirmed:
+            try:
+                os.remove(os.path.join(folder, name))
+            except FileNotFoundError:
+                continue
+            deleted += 1
+            freed += size
+    return {"deleted": deleted, "freed": freed}
 
 
 @app.post("/api/open-folder")

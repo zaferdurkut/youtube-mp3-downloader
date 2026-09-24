@@ -94,7 +94,8 @@
   button:disabled { opacity: 0.5; cursor: default; }
   .actions { align-self: end; display: flex; }
   .actions button { flex: 1; }
-  button.stop { background: var(--fail); color: #fff; }
+  /* Fixed red: readable white text in both themes */
+  button.stop { background: #dc2626; color: #fff; }
   button.secondary {
     flex: none;
     padding: 10px 14px;
@@ -105,6 +106,18 @@
   }
   .folder { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
   .folder-row { display: flex; gap: 10px; }
+  .cleanup {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    font-size: 14px;
+  }
+  .cleanup ul { margin: 8px 0 12px; max-height: 180px; overflow-y: auto; color: var(--muted); font-size: 13px; }
+  .cleanup li { padding: 3px 0; border: 0; }
+  .cleanup-actions { display: flex; gap: 8px; }
+  .cleanup-actions button { padding: 6px 14px; font-size: 14px; }
   .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
   .hint.error { color: var(--fail); }
   .hint button { padding: 0; background: none; border: 0; color: var(--accent); font-size: 13px; font-weight: 500; text-decoration: underline; }
@@ -229,6 +242,15 @@
         <input id="folder" type="text" spellcheck="false">
         <button class="secondary" id="save-folder" type="button" hidden>Kaydet</button>
         <button class="secondary" id="open-folder" type="button">Klasörü aç</button>
+        <button class="secondary" id="cleanup" type="button" title="Yarım kalan indirmeleri ve artık dosyaları sil">Temizle</button>
+      </div>
+      <div class="cleanup" id="cleanup-panel" hidden>
+        <div id="cleanup-title"></div>
+        <ul id="cleanup-list"></ul>
+        <div class="cleanup-actions">
+          <button class="stop" id="cleanup-confirm" type="button">Sil</button>
+          <button class="secondary" id="cleanup-cancel" type="button">Vazgeç</button>
+        </div>
       </div>
       <p class="hint" id="folder-hint">Klasör yoksa oluşturulur.</p>
     </div>
@@ -328,6 +350,48 @@
   $("save-folder").addEventListener("click", () => saveFolder($("folder").value.trim()));
   $("open-folder").addEventListener("click", () => fetch("/api/open-folder", { method: "POST" }));
 
+  // --- Cleanup of leftover files ---
+
+  let cleanupNames = [];
+
+  $("cleanup").addEventListener("click", async () => {
+    const { files, total } = await fetch("/api/cleanup").then((r) => r.json());
+    if (!files.length) {
+      $("cleanup-panel").hidden = true;
+      showFolder("Temizlenecek dosya yok.");
+      return;
+    }
+    cleanupNames = files.map((f) => f.name);
+    $("cleanup-title").textContent =
+      `Yarım kalan indirmelerden ${files.length} dosya silinecek (${formatSize(total)}):`;
+    $("cleanup-list").replaceChildren(...files.map((f) => {
+      const li = document.createElement("li");
+      li.textContent = f.name;
+      return li;
+    }));
+    $("cleanup-panel").hidden = false;
+  });
+
+  $("cleanup-cancel").addEventListener("click", () => { $("cleanup-panel").hidden = true; });
+
+  $("cleanup-confirm").addEventListener("click", async () => {
+    $("cleanup-confirm").disabled = true;
+    const response = await fetch("/api/cleanup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names: cleanupNames }),
+    });
+    const body = await response.json();
+    $("cleanup-confirm").disabled = false;
+    $("cleanup-panel").hidden = true;
+    if (!response.ok) {
+      showFolder(typeof body.detail === "string" ? body.detail : "Temizlik yapılamadı", true);
+      return;
+    }
+    showFolder(`${body.deleted} dosya silindi (${formatSize(body.freed)}).`);
+    loadLibrary();
+  });
+
   // --- Mode and format ---
 
   function syncMode() {
@@ -346,7 +410,9 @@
   // --- Library ---
 
   function formatSize(bytes) {
-    return bytes >= 1e9 ? (bytes / 1e9).toFixed(1) + " GB" : (bytes / 1e6).toFixed(1) + " MB";
+    if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + " GB";
+    if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + " MB";
+    return Math.max(1, Math.round(bytes / 1e3)) + " KB";
   }
 
   function play(file) {
@@ -454,7 +520,8 @@
     $("stop").hidden = !busy;
     $("stop").disabled = false;
     $("stop").textContent = "Durdur";
-    document.querySelectorAll("#form input, #folder, #save-folder").forEach((el) => { el.disabled = busy; });
+    document.querySelectorAll("#form input, #folder, #save-folder, #cleanup").forEach((el) => { el.disabled = busy; });
+    if (busy) $("cleanup-panel").hidden = true;
   }
 
   function handle(event) {

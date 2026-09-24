@@ -1,6 +1,7 @@
 """Download logic shared by the CLI (downloader.py) and the web UI (app.py)."""
 import os
 import re
+import time
 from dataclasses import dataclass, field
 
 import yt_dlp
@@ -41,6 +42,45 @@ ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 ARCHIVE_SKIP_RE = re.compile(
     r"\[download\] (?:[\w-]+: )?(.*) has already been recorded in the archive"
 )
+
+
+MEDIA_EXTENSIONS = "mp3|m4a|mp4|webm|mkv|opus|ogg|wav|flac|mov"
+FINAL_EXTENSIONS = {".mp3", ".m4a", ".mp4"}
+# Names only yt-dlp produces: partial downloads, per-format parts of a merge, temp files
+LEFTOVER_RE = re.compile(
+    rf"(\.ytdl"
+    rf"|\.({MEDIA_EXTENSIONS})\.part(-Frag\d+)?"
+    rf"|\.f\d+(-\d+)?\.({MEDIA_EXTENSIONS})(\.part(-Frag\d+)?)?"
+    rf"|\.temp\.({MEDIA_EXTENSIONS}))$",
+    re.IGNORECASE,
+)
+# Kept next to a finished file when embedding or converting was interrupted
+SIDECAR_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".webm", ".opus"}
+
+
+def find_leftovers(folder, min_age=600):
+    """Files in folder that yt-dlp left behind, as (name, size) pairs.
+
+    Only names yt-dlp itself produces are matched, and anything modified in the last
+    min_age seconds is skipped, so a shared folder like ~/Downloads is safe to scan.
+    """
+    try:
+        entries = [e for e in os.scandir(folder) if e.is_file() and not e.name.startswith(".")]
+    except FileNotFoundError:
+        return []
+    finished = {os.path.splitext(e.name)[0] for e in entries
+                if os.path.splitext(e.name)[1].lower() in FINAL_EXTENSIONS}
+    now = time.time()
+    leftovers = []
+    for entry in entries:
+        stem, ext = os.path.splitext(entry.name)
+        stat = entry.stat()
+        if now - stat.st_mtime < min_age:
+            continue
+        is_sidecar = ext.lower() in SIDECAR_EXTENSIONS and stem in finished
+        if LEFTOVER_RE.search(entry.name) or is_sidecar:
+            leftovers.append((entry.name, stat.st_size))
+    return sorted(leftovers)
 
 
 @dataclass

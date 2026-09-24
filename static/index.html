@@ -92,6 +92,9 @@
     cursor: pointer;
   }
   button:disabled { opacity: 0.5; cursor: default; }
+  .actions { align-self: end; display: flex; }
+  .actions button { flex: 1; }
+  button.stop { background: var(--fail); color: #fff; }
   button.secondary {
     flex: none;
     padding: 10px 14px;
@@ -121,9 +124,32 @@
   .done .icon { color: var(--ok); }
   .skipped, .skipped .icon { color: var(--muted); }
   .error .icon, li.error { color: var(--fail); }
-  .summary { font-weight: 600; margin-bottom: 12px; }
-  .summary:empty { display: none; }
-  .library-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .summary { font-weight: 600; }
+  .errors { margin-top: 12px; }
+  .errors:empty { display: none; }
+  details { margin-top: 12px; }
+  details > summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 14px;
+    list-style: none;
+    user-select: none;
+  }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: "▸ "; }
+  details[open] > summary::before { content: "▾ "; }
+  details > ul { margin-top: 12px; max-height: 360px; overflow-y: auto; }
+  .library-head { display: flex; align-items: baseline; gap: 12px; }
+  .library-head h2 { flex: 1; }
+  .link {
+    padding: 0;
+    background: none;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .library-body { margin-top: 12px; }
+  .more { margin-top: 8px; }
   .count { color: var(--muted); font-size: 13px; }
   .player { margin-bottom: 12px; }
   .player video { width: 100%; border-radius: 8px; background: #000; max-height: 60vh; }
@@ -189,7 +215,10 @@
           <label for="limit">İlk kaç tane</label>
           <input id="limit" type="number" min="1" placeholder="Tümü">
         </div>
-        <button id="start" type="submit">İndir</button>
+        <div class="actions">
+          <button id="start" type="submit">İndir</button>
+          <button id="stop" class="stop" type="button" hidden>Durdur</button>
+        </div>
       </div>
     </form>
     <p class="message" id="message"></p>
@@ -213,20 +242,28 @@
 
   <div class="card" id="results" hidden>
     <div class="summary" id="summary"></div>
-    <ul id="list"></ul>
+    <ul class="errors" id="errors"></ul>
+    <details id="details" hidden>
+      <summary id="details-label"></summary>
+      <ul id="list"></ul>
+    </details>
   </div>
 
   <div class="card">
     <div class="library-head">
       <h2>Kütüphane</h2>
       <span class="count" id="count"></span>
+      <button class="link" id="library-toggle" type="button">Gizle</button>
     </div>
-    <div class="player" id="player" hidden>
-      <div class="player-title" id="player-title"></div>
-      <div id="player-media"></div>
+    <div class="library-body" id="library-body">
+      <div class="player" id="player" hidden>
+        <div class="player-title" id="player-title"></div>
+        <div id="player-media"></div>
+      </div>
+      <ul class="files" id="files"></ul>
+      <button class="link more" id="more" type="button" hidden></button>
+      <p class="empty" id="empty" hidden>Bu klasörde henüz ses ya da video dosyası yok.</p>
     </div>
-    <ul class="files" id="files"></ul>
-    <p class="empty" id="empty" hidden>Bu klasörde henüz ses ya da video dosyası yok.</p>
   </div>
 </main>
 
@@ -235,6 +272,12 @@
   const ICONS = { done: "✓", skipped: "↷", error: "✕" };
   let config = { output_folder: "", default_folder: "" };
   let playing = null;
+  let currentJob = null;
+  let counts = { done: 0, skipped: 0, error: 0 };
+  let outcome = null; // null while running, then "done" or "cancelled"
+  let libraryFiles = [];
+  let showAllFiles = false;
+  const LIBRARY_PREVIEW = 10;
 
   const checked = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
   const check = (name, value) => {
@@ -321,10 +364,18 @@
   }
 
   async function loadLibrary() {
-    const files = await fetch("/api/files").then((r) => r.json());
+    libraryFiles = await fetch("/api/files").then((r) => r.json());
+    renderLibrary();
+  }
+
+  function renderLibrary() {
+    const files = libraryFiles;
+    const shown = showAllFiles ? files : files.slice(0, LIBRARY_PREVIEW);
     $("count").textContent = files.length ? `${files.length} dosya` : "";
     $("empty").hidden = files.length > 0;
-    $("files").replaceChildren(...files.map((file) => {
+    $("more").hidden = files.length <= LIBRARY_PREVIEW;
+    $("more").textContent = showAllFiles ? "Daha az göster" : `Tümünü göster (${files.length})`;
+    $("files").replaceChildren(...shown.map((file) => {
       const li = document.createElement("li");
       li.dataset.name = file.name;
       li.classList.toggle("playing", file.name === playing);
@@ -346,9 +397,35 @@
     }));
   }
 
+  $("more").addEventListener("click", () => {
+    showAllFiles = !showAllFiles;
+    renderLibrary();
+  });
+
+  function setLibraryOpen(open) {
+    $("library-body").hidden = !open;
+    $("library-toggle").textContent = open ? "Gizle" : "Göster";
+    try { localStorage.setItem("libraryOpen", open ? "1" : "0"); } catch {}
+  }
+  $("library-toggle").addEventListener("click", () => setLibraryOpen($("library-body").hidden));
+  try { if (localStorage.getItem("libraryOpen") === "0") setLibraryOpen(false); } catch {}
+
   // --- Download progress ---
 
+  function updateSummary() {
+    const parts = [`${counts.done} indirildi`];
+    if (counts.skipped) parts.push(`${counts.skipped} zaten vardı`);
+    if (counts.error) parts.push(`${counts.error} başarısız`);
+    const prefix = { done: "Bitti: ", cancelled: "Durduruldu: " }[outcome] || "";
+    $("summary").textContent = prefix + parts.join(", ");
+    const listed = counts.done + counts.skipped;
+    $("details").hidden = listed === 0;
+    $("details-label").textContent = ($("details").open ? "Listeyi gizle" : "Listeyi göster") + ` (${listed})`;
+  }
+  $("details").addEventListener("toggle", updateSummary);
+
   function addRow(kind, text) {
+    counts[kind] += 1;
     const li = document.createElement("li");
     li.className = kind;
     const icon = document.createElement("span");
@@ -357,8 +434,9 @@
     const label = document.createElement("span");
     label.textContent = text;
     li.append(icon, label);
-    $("list").append(li);
+    $(kind === "error" ? "errors" : "list").append(li);
     $("results").hidden = false;
+    updateSummary();
   }
 
   function setNow(status, title, position, percent) {
@@ -371,8 +449,11 @@
   }
 
   function setBusy(busy) {
+    $("start").hidden = busy;
     $("start").disabled = busy;
-    $("start").textContent = busy ? "İndiriliyor…" : "İndir";
+    $("stop").hidden = !busy;
+    $("stop").disabled = false;
+    $("stop").textContent = "Durdur";
     document.querySelectorAll("#form input, #folder, #save-folder").forEach((el) => { el.disabled = busy; });
   }
 
@@ -399,11 +480,9 @@
         break;
       case "finished": {
         $("now").hidden = true;
-        const failed = event.failed.length;
-        $("summary").textContent =
-          `Bitti: ${event.downloaded} indirildi` +
-          (event.skipped ? `, ${event.skipped} zaten vardı` : "") +
-          (failed ? `, ${failed} başarısız` : "");
+        currentJob = null;
+        outcome = event.cancelled ? "cancelled" : "done";
+        updateSummary();
         $("results").hidden = false;
         setBusy(false);
         loadLibrary();
@@ -413,9 +492,15 @@
   }
 
   function listen(id) {
+    currentJob = id;
     setBusy(true);
+    counts = { done: 0, skipped: 0, error: 0 };
+    outcome = null;
     $("list").replaceChildren();
+    $("errors").replaceChildren();
     $("summary").textContent = "";
+    $("details").open = false;
+    $("details").hidden = true;
     $("results").hidden = true;
     setNow("Hazırlanıyor…", "Link okunuyor", "", null);
 
@@ -435,6 +520,13 @@
     syncMode();
     listen(current.id);
   }
+
+  $("stop").addEventListener("click", () => {
+    if (!currentJob) return;
+    $("stop").disabled = true;
+    $("stop").textContent = "Durduruluyor…";
+    fetch(`/api/downloads/${currentJob}/cancel`, { method: "POST" });
+  });
 
   $("form").addEventListener("submit", async (e) => {
     e.preventDefault();

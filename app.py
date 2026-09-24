@@ -22,7 +22,7 @@ VIDEO_EXTENSIONS = {".mp4", ".mkv", ".webm", ".mov"}
 
 INDEX_HTML = Path(__file__).parent / "static" / "index.html"
 # The folder picked in the UI survives restarts; OUTPUT_FOLDER only sets the default
-SETTINGS_FILE = Path(__file__).parent / "settings.json"
+SETTINGS_FILE = Path(os.environ.get("SETTINGS_FILE", Path(__file__).parent / "settings.json"))
 DEFAULT_FOLDER = os.environ.get("OUTPUT_FOLDER", DEFAULT_OUTPUT_FOLDER)
 
 
@@ -54,6 +54,7 @@ class Job:
         self.request = request
         self.events = []
         self.finished = False
+        self.cancel = threading.Event()
 
     def emit(self, event):
         self.events.append(event)
@@ -72,7 +73,7 @@ def run_job(job, request):
     global current_job
     try:
         download(request.url, output_folder(), request.limit, request.format, request.single,
-                 on_event=job.emit)
+                 on_event=job.emit, cancel=job.cancel)
     except Exception as exc:  # keep the UI informed instead of hanging forever
         job.emit({"type": "error", "message": str(exc)})
         job.emit({"type": "finished", "downloaded": 0, "skipped": 0, "failed": [str(exc)]})
@@ -124,6 +125,15 @@ def start_download(request: DownloadRequest):
     current_job = job
     threading.Thread(target=run_job, args=(job, request), daemon=True).start()
     return {"id": job.id}
+
+
+@app.post("/api/downloads/{job_id}/cancel")
+def cancel_download(job_id: str):
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "Böyle bir indirme yok")
+    job.cancel.set()
+    return {"ok": True}
 
 
 @app.post("/api/open-folder")

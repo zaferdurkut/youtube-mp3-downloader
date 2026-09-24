@@ -22,7 +22,7 @@ make ui
 ```
 Opens http://127.0.0.1:8000. Pick single video or playlist and a format, paste the link and download. The library at the bottom lists the files in the output folder: click a song to play it, or a video to watch it. The output folder can be changed from the UI and is remembered in `settings.json`.
 
-Only one download runs at a time; reloading the page or opening a second tab reconnects to the running download.
+Only one download runs at a time; reloading the page or opening a second tab reconnects to the running download. **Durdur** stops it and removes the half-downloaded files of the song in progress; songs that already finished are kept.
 
 ### Command line
 ```

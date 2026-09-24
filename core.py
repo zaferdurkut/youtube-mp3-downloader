@@ -11,22 +11,22 @@ from titles import clean_title
 DEFAULT_OUTPUT_FOLDER = os.path.join(os.path.expanduser("~"), "Downloads")
 
 # Each format keeps its own archive, so a song saved as mp3 can still be fetched as mp4.
-# mp3 keeps the original file name so existing archives stay valid.
+# Archives are hidden files so they don't clutter a shared folder like ~/Downloads.
 FORMATS = {
     "mp3": {
-        "archive": "downloaded_songs.txt",
+        "archive": ".youtube_downloaded_mp3.txt",
         "opts": {"format": "bestaudio/best"},
         "postprocessors": [
             {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"},
         ],
     },
     "m4a": {
-        "archive": "downloaded_m4a.txt",
+        "archive": ".youtube_downloaded_m4a.txt",
         "opts": {"format": "bestaudio[ext=m4a]/bestaudio/best"},
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "m4a"}],
     },
     "mp4": {
-        "archive": "downloaded_mp4.txt",
+        "archive": ".youtube_downloaded_mp4.txt",
         "opts": {
             # Prefer H.264: AV1/VP9 won't play in QuickTime or on older devices
             "format": "bv*[vcodec^=avc1]+ba[ext=m4a]/bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b",

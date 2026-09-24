@@ -28,4 +28,8 @@ Quote the URL so the shell doesn't interpret `&`:
 ```
 python downloader.py --output_folder downloaded_songs --url "https://www.youtube.com/playlist?list=PLAYLIST_ID"
 ```
+To download only the first N songs of a playlist, add `--limit N`:
+```
+python downloader.py --limit 10 --url "https://www.youtube.com/playlist?list=PLAYLIST_ID"
+```
 Already downloaded songs are recorded in `<output_folder>/downloaded_songs.txt` and skipped on the next run.

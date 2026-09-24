@@ -117,3 +117,5 @@ models/__pycache__/
 
 
 .vscode
+# Downloaded songs
+downloaded_songs/

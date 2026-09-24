@@ -19,6 +19,14 @@ parser.add_argument(
     "--url", metavar="url", required=True, type=str, help="Requested URL"
 )
 
+parser.add_argument(
+    "--limit",
+    metavar="limit",
+    type=int,
+    default=None,
+    help="Download only the first N songs of a playlist",
+)
+
 args = parser.parse_args()
 
 if args.url is None:
@@ -50,6 +58,9 @@ ydl_opts = {
     "logger": MyLogger(),
     "progress_hooks": [my_hook],
 }
+if args.limit:
+    ydl_opts["playlistend"] = args.limit
+
 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
     # info = ydl.extract_info(
     #     args.url,

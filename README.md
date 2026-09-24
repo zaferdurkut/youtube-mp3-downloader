@@ -4,7 +4,7 @@ Download a single YouTube video or a whole playlist as mp3, m4a or mp4, from a s
 - Songs get their cover art and artist / title tags embedded.
 - File names are cleaned up: `Cengiz Özkan - Değme Felek I Official Music Video © 2015 Kalan Müzik` becomes `Cengiz Özkan - Değme Felek.mp3`.
 - Already downloaded videos are skipped on the next run (tracked per format).
-- Files are saved to `~/Downloads/YouTube` by default.
+- Files are saved to `~/Downloads` by default.
 
 ## Requirements
 Python 3.10+ and ffmpeg. On Mac OS (for other operating systems, see the ffmpeg docs):
@@ -35,7 +35,7 @@ Options:
 | `FORMAT=mp3\|m4a\|mp4` | Output format (default `mp3`) |
 | `LIMIT=10` | Only the first N items of a playlist |
 | `SINGLE=1` | Only the video, even if the link also has `list=` |
-| `OUT=~/Music/YouTube` | Output folder (default `~/Downloads/YouTube`) |
+| `OUT=~/Music/YouTube` | Output folder (default `~/Downloads`) |
 
 Or call the script directly: `python downloader.py --help`.
 

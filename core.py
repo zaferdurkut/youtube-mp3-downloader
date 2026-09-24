@@ -8,7 +8,7 @@ from yt_dlp.postprocessor import PostProcessor
 
 from titles import clean_title
 
-DEFAULT_OUTPUT_FOLDER = os.path.join(os.path.expanduser("~"), "Downloads", "YouTube")
+DEFAULT_OUTPUT_FOLDER = os.path.join(os.path.expanduser("~"), "Downloads")
 
 # Each format keeps its own archive, so a song saved as mp3 can still be fetched as mp4.
 # mp3 keeps the original file name so existing archives stay valid.
